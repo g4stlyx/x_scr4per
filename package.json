@@ -1,0 +1,20 @@
+{
+  "name": "xpostscrape",
+  "version": "1.0.0",
+  "main": "scrape_x.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.5.0",
+    "node-fetch": "^2.7.0",
+    "puppeteer": "^24.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
