@@ -14,7 +14,7 @@
   * --outfile (default “tweets.json”) controls where JSON is read/written.
 
 * examples:
-  * Latest Turkish tweets about “deprem”: node scrape_x.js --query=deprem --tab=latest --limit=200
+  * Latest Turkish tweets about “deprem”: node scrape_x.js --query=deprem --tab=latest --limit=200 --lang=tr
   * Top tweets from @elonmusk since April 1, 2025: node scrape_x.js --user=elonmusk --since=2025-04-01 --tab=top
   * node .\scrape_x.js --lang="en" --query="madrid" --tab="top" --limit=1000 --outfile="madrid_tweets.json"
 
@@ -28,9 +28,10 @@
 
 ## todo
 
-* retweets scrape option on-off 
-* maybe sentiment analysis based on some words/emojis
-* maybe bot detection based on repetations
+* ui
+* sentiment analysis? based on some words/emojis
+* bot detection? based on repetations
+* user profiling/classifaction?
 
 ## v1
 
@@ -59,10 +60,25 @@
   * .option('until', { type: 'string', describe: 'End date (YYYY-MM-DD)' })
   * .option('tab', { choices: ['latest','top','media'], default: 'latest', describe: 'Search tab: latest, top, or media' })
   * .option('limit', { type: 'number', describe: 'Max number of tweets to scrape' })
-  * .option('lang', { type: 'string', default: 'tr', describe: 'Language code to filter tweets (e.g. tr, en)' })
   * .option('outfile', { type: 'string', default: 'tweets.json', describe: 'Path to output JSON file' })
   * .option('maxNoNew', { type: 'number', default: 3, describe: 'Number of empty scrolls to detect end of feed' })
 * no more limits now (i only tested it upto 522 tweets)
 * when ctrl+c, it now saves the tweets it fetched until the end before exiting the script.
 
 ## v4
+
+* .option('scrollDelay', { type: 'number', default: 500, describe: 'Delay in ms between scrolls (lower = faster scraping)' })
+* Performance improvements:
+  * Reduced default wait time between scrolls from 2000ms to 500ms for faster scraping
+  * Added configurable scrollDelay parameter to fine-tune scraping speed
+  * Example usage: `node scrape_x.js --query="ai" --scrollDelay=300` for even faster scraping
+  * Note: Using very low delay values (<200ms) might cause Twitter to load tweets inconsistently
+* ex: node scrape_x.js --tab=latest --limit=1000 --lang=tr --scrollDelay=200 --maxNoNew=20 --outfile=out/2msec_test.json
+
+## v5
+
+ui todo
+
+## v6
+
+sentiment analysis, bot analysis todo, user profiling/classifaction?

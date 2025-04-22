@@ -13,6 +13,7 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
   .option('lang', { type: 'string', describe: 'Language code to filter tweets (e.g. tr, en). If not provided, no language filter is applied.' })
   .option('outfile', { type: 'string', default: 'tweets.json', describe: 'Path to output JSON file' })
   .option('maxNoNew', { type: 'number', default: 3, describe: 'Number of empty scrolls to detect end of feed' })
+  .option('scrollDelay', { type: 'number', default: 500, describe: 'Delay in ms between scrolls (lower = faster scraping, but may miss tweets)' })
   .help()
   .argv;
 const puppeteer = require('puppeteer-extra');
@@ -265,9 +266,9 @@ process.on('exit', () => {
       // scroll down to load more
       console.log('Scrolling down');
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-      // delay to allow new tweets to load
-      console.log('Waiting 2 seconds');
-      await new Promise(r => setTimeout(r, 2000));
+      // delay to allow new tweets to load - configurable via scrollDelay parameter
+      console.log(`Waiting ${argv.scrollDelay} ms`);
+      await new Promise(r => setTimeout(r, argv.scrollDelay));
       // detect end of feed by comparing scrollHeight
       const newHeight = await page.evaluate(() => document.body.scrollHeight);
       if (newHeight === lastHeight) {
