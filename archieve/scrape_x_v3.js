@@ -10,8 +10,8 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
   .option('until', { type: 'string', describe: 'End date (YYYY-MM-DD)' })
   .option('tab', { choices: ['latest','top','media'], default: 'latest', describe: 'Search tab: latest, top, or media' })
   .option('limit', { type: 'number', describe: 'Max number of tweets to scrape' })
-  .option('lang', { type: 'string', default: 'tr', describe: 'Language code to filter tweets (e.g. tr, en)' })
-  .option('outfile', { type: 'string', default: 'turkish_tweets.json', describe: 'Path to output JSON file' })
+  .option('lang', { type: 'string', describe: 'Language code to filter tweets (e.g. tr, en). If not provided, no language filter is applied.' })
+  .option('outfile', { type: 'string', default: 'tweets.json', describe: 'Path to output JSON file' })
   .option('maxNoNew', { type: 'number', default: 3, describe: 'Number of empty scrolls to detect end of feed' })
   .help()
   .argv;
@@ -169,7 +169,8 @@ process.on('exit', () => {
     }
 
     // build search query parts
-    const parts = [`lang:${argv.lang}`];
+    const parts = [];
+    if (argv.lang) parts.push(`lang:${argv.lang}`);
     if (argv.user) parts.push(`from:${argv.user}`);
     if (argv.query) parts.push(argv.query);
     if (argv.since) parts.push(`since:${argv.since}`);

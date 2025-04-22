@@ -50,7 +50,9 @@
 ## v3
 
 * out and archieve folders for a cleaner structure/design
+* language filter is now optional.
 * parameters to filter & search better:
+  * .option('lang', { type: 'string', describe: 'Language code to filter tweets (e.g. tr, en). If not provided, no language filter is applied.' })
   * .option('user', { type: 'string', describe: 'Filter tweets from a specific user (without @)' })
   * .option('query', { type: 'string', describe: 'Keyword or text to search for' })
   * .option('since', { type: 'string', describe: 'Start date (YYYY-MM-DD)' })
