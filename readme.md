@@ -1,7 +1,10 @@
-# scr4pe_x
+# HOW TO RUN
 * x login info is needed in .env file: 
   * TWITTER_USER
   * TWITTER_PASS
+* PORT (optional for the server port)
+
+### using x_scraper.js as script
 
 * using it with parameters:
   * --user=username (from:)
@@ -26,19 +29,29 @@
   --since=2025-04-10 --until=2025-04-20 --limit=500 \
   --outfile=madrid_10_20.json
 
-## todo
+### using it with a ui
+
+run ``npm i | node server.js`` and go to ``http://localhost:3000``
+
+<br><br>
+
+# TODO
 
 * ui
 * sentiment analysis? based on some words/emojis
 * bot detection? based on repetations
 * user profiling/classifaction?
 
-## v1
+<br><br> 
+
+# VERSIONS
+
+### v1
 
 * scrapes mobile.twitter.com/search?q=lang%3Atr&f=tweets and gets 1 page of tweets, stores them (overwrites) them into a json file
 * uses login info from .env and cookies for auth
 
-## v2
+### v2
 
 - Fixed display name and userId extraction using data-testid selectors
 - Each tweet object now includes:
@@ -48,7 +61,7 @@
   - images (array of media URLs)
 - Appends only new tweets into the JSON file without overwriting existing entries
 
-## v3
+### v3
 
 * out and archieve folders for a cleaner structure/design
 * language filter is now optional.
@@ -65,7 +78,7 @@
 * no more limits now (i only tested it upto 522 tweets)
 * when ctrl+c, it now saves the tweets it fetched until the end before exiting the script.
 
-## v4
+### v4
 
 * .option('scrollDelay', { type: 'number', default: 500, describe: 'Delay in ms between scrolls (lower = faster scraping)' })
 * Performance improvements:
@@ -75,10 +88,13 @@
   * Note: Using very low delay values (<200ms) might cause Twitter to load tweets inconsistently
 * ex: node scrape_x.js --tab=latest --limit=1000 --lang=tr --scrollDelay=200 --maxNoNew=20 --outfile=out/2msec_test.json
 
-## v5
+### v5
 
-ui todo
+* a nice ui and an nodeJS api is added.
+  * pagination in ui.
+* .option('headless', { type: 'boolean', default: true, describe: 'Run browser in headless mode (invisible)' })
+  * now we dont have to see a literal browser scrolling down for tweets.
 
-## v6
+### v6 to go
 
 sentiment analysis, bot analysis todo, user profiling/classifaction?

@@ -14,6 +14,7 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
   .option('outfile', { type: 'string', default: 'tweets.json', describe: 'Path to output JSON file' })
   .option('maxNoNew', { type: 'number', default: 3, describe: 'Number of empty scrolls to detect end of feed' })
   .option('scrollDelay', { type: 'number', default: 500, describe: 'Delay in ms between scrolls (lower = faster scraping, but may miss tweets)' })
+  .option('headless', { type: 'boolean', default: true, describe: 'Run browser in headless mode (invisible)' })
   .help()
   .argv;
 const puppeteer = require('puppeteer-extra');
@@ -97,7 +98,7 @@ process.on('exit', () => {
   try {
     console.log('Launching browser with stealth plugin...');
     const browser = await puppeteer.launch({
-      headless: false,
+      headless: argv.headless, // Use the headless option from command line arguments
       ignoreDefaultArgs: ['--enable-automation'],
       args: [
         '--no-sandbox',
@@ -108,7 +109,7 @@ process.on('exit', () => {
       defaultViewport: null,
       timeout: 30000
     });
-    console.log('Browser launched');
+    console.log(`Browser launched in ${argv.headless ? 'headless' : 'visible'} mode`);
     const page = await browser.newPage();
     console.log('Page object created');
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
