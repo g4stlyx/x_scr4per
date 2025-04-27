@@ -2,6 +2,9 @@
 console.log('Starting scraper...');
 // load environment variables for credentials
 require('dotenv').config();
+// Load sentiment analysis library
+const Sentiment = require('sentiment');
+const sentiment = new Sentiment();
 // parse CLI options for search parameters
 const argv = require('yargs/yargs')(process.argv.slice(2))
   .option('user', { type: 'string', describe: 'Filter tweets from a specific user (without @)' })
@@ -146,7 +149,7 @@ process.on('exit', () => {
       await page.keyboard.press('Enter');
       console.log('Username submitted, inspecting password prompt...');
       // allow time for password form to load
-      await page.waitForTimeout(2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
       // DEBUG: capture password page and list input fields
       console.log('Debug: saving screenshot of password page');
       await page.screenshot({ path: 'login-pass-debug.png', fullPage: true });
@@ -187,6 +190,15 @@ process.on('exit', () => {
     console.log('Navigating to URL:', url);
     await page.goto(url, { timeout: 60000, waitUntil: 'domcontentloaded' });
     console.log('Page loaded');
+    // Check if redirected to x.com and adjust accordingly
+    const currentUrl = await page.url();
+    console.log('Current URL after loading:', currentUrl);
+    if (currentUrl.includes('x.com')) {
+      console.log('Detected redirect to x.com domain, adjusting selectors accordingly');
+      // Wait a bit longer for the new domain to fully load
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
     // dismiss cookie banner if present
     console.log('Checking for cookie consent banner...');
     try {
@@ -203,9 +215,90 @@ process.on('exit', () => {
     }
     // wait for first mobile tweet to render before scraping
     console.log('Waiting for first tweet to load...');
-    const initialSelector = 'article div[lang]';
-    await page.waitForSelector(initialSelector, { timeout: 15000 });
-    console.log('First tweet loaded, starting collection');
+    try {
+      // Try several possible tweet selectors with a longer timeout
+      const possibleSelectors = [
+        'article div[lang]',
+        'article[data-testid="tweet"]',
+        'div[data-testid="tweetText"]',
+        'article',
+        '[data-testid="cellInnerDiv"]',
+        'div[data-testid="cellInnerDiv"]',
+        '[data-testid="Tweet"]',
+        'div.tweet'
+      ];
+      
+      // Try each selector in order with a timeout
+      let foundSelector = false;
+      for (const selector of possibleSelectors) {
+        try {
+          console.log(`Trying selector: ${selector}`);
+          await page.waitForSelector(selector, { timeout: 8000 });
+          console.log(`Found tweets using selector: ${selector}`);
+          foundSelector = true;
+          break;
+        } catch (err) {
+          console.log(`Selector ${selector} not found, trying next...`);
+        }
+      }
+      
+      if (!foundSelector) {
+        // If all specific selectors fail, check if we're on a page with any content
+        console.log('All primary tweet selectors failed, trying fallback selectors...');
+        await Promise.race([
+          page.waitForSelector('section[aria-label]', { timeout: 8000 }),
+          page.waitForSelector('div[aria-label="Timeline"]', { timeout: 8000 }),
+          page.waitForSelector('main[role="main"]', { timeout: 8000 })
+        ]);
+      }
+
+      // Wait a bit longer to ensure the page is properly loaded
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Take a screenshot to help debug what's on the page
+      await page.screenshot({ path: 'debug-page.png', fullPage: true });
+      console.log('Tweet elements may be present, starting collection anyway');
+    } catch (err) {
+      console.error('Could not find any tweet elements on the page. Current URL:', await page.url());
+      console.error('Taking a screenshot for debugging...');
+      await page.screenshot({ path: 'error-page.png', fullPage: true });
+      
+      // Record the HTML content for debugging
+      const htmlContent = await page.content();
+      fs.writeFileSync('error-page-content.html', htmlContent);
+      
+      // Instead of failing, let's continue and see if we can extract tweets with alternative methods
+      console.log('Attempting to continue despite selector issues');
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait a bit longer before continuing
+    }
+
+    // Try to detect and log any visible content on the page that might be tweets
+    console.log('Performing emergency content detection...');
+    try {
+      const contentScan = await page.evaluate(() => {
+        // Scan for any elements that could contain tweets
+        const potentialContainers = [
+          ...document.querySelectorAll('article'),
+          ...document.querySelectorAll('[data-testid="tweet"]'),
+          ...document.querySelectorAll('[data-testid="cellInnerDiv"]'),
+          ...document.querySelectorAll('div[role="article"]'),
+          ...document.querySelectorAll('div.tweet')
+        ];
+        
+        // Count elements by type
+        return {
+          articles: document.querySelectorAll('article').length,
+          divs: document.querySelectorAll('div').length,
+          links: document.querySelectorAll('a').length,
+          potentialTweets: potentialContainers.length,
+          bodyText: document.body.innerText.substring(0, 200) // First 200 chars of body text
+        };
+      });
+      
+      console.log('Emergency content scan results:', contentScan);
+    } catch (err) {
+      console.error('Failed to perform emergency content scan:', err);
+    }
 
     const maxTweets = argv.limit || Infinity;
     // scroll until limit reached or end of feed
@@ -217,50 +310,101 @@ process.on('exit', () => {
       console.log(`Scroll iteration ${++iter}, collected so far: ${tweetMap.size}`);
       let newTweets = [];
       try {
-        // mobile Twitter: extract tweet data (content, user, display name, timestamp)
-        newTweets = await page.$$eval('article', nodes => nodes.map(n => {
-          // tweet text
-          const contentNode = n.querySelector('div[lang]');
-          const content = contentNode ? contentNode.innerText.trim() : '';
-          // user profile link (slug username)
+        // mobile Twitter: extract tweet data with multiple fallback selectors
+        newTweets = await page.$$eval('article, div[data-testid="tweet"], div.tweet', nodes => nodes.map(n => {
+          // tweet text with fallbacks
+          let content = '';
+          const contentNode = n.querySelector('div[lang], div[data-testid="tweetText"], .tweet-text');
+          
+          if (contentNode) {
+            content = contentNode.innerText.trim();
+          }
+          
+          // Try multiple ways to get the username
+          let username = '';
+          // First try standard href method
           const anchors = Array.from(n.querySelectorAll('a[href^="/"]'));
           const profileLink = anchors.find(a => !a.getAttribute('href').includes('/status/'));
-          const username = profileLink ? profileLink.getAttribute('href').slice(1).split('?')[0] : '';
-          // display name from User-Name container
+          if (profileLink) {
+            username = profileLink.getAttribute('href').slice(1).split('?')[0];
+          } 
+          // Fallback to other selectors
+          if (!username) {
+            const usernameNode = n.querySelector('[data-testid="User-Name"] a[role="link"]') || 
+                                 n.querySelector('.username') ||
+                                 n.querySelector('span[data-testid="tweetAuthor"]');
+            if (usernameNode) {
+              const text = usernameNode.innerText.trim();
+              if (text.startsWith('@')) {
+                username = text.slice(1);
+              } else {
+                username = text;
+              }
+            }
+          }
+          
+          // display name with fallbacks
           let displayName = '';
-          const nameContainer = n.querySelector('[data-testid="User-Name"]');
+          const nameContainer = n.querySelector('[data-testid="User-Name"], .fullname, .name');
           if (nameContainer) {
-            // take only the first line (actual name) before handle/time
             displayName = nameContainer.innerText.split('\n')[0].trim();
           }
-          // userId from avatar container's data-testid
-          let userId = '';
-          const avatar = n.querySelector('div[data-testid^="UserAvatar-Container-"]');
-          if (avatar) {
-            const attr = avatar.getAttribute('data-testid');
-            userId = attr.replace('UserAvatar-Container-', '');
-          }
-          // time link and tweet URL/ID
+          
+          // time link and tweet URL/ID with multiple fallbacks
+          let tweetUrl = '';
+          let tweetId = '';
+          let timestamp = '';
+          
+          // Try multiple ways to get the tweet URL
           const timeAnchor = n.querySelector('a[href*="/status/"]');
-          const tweetPath = timeAnchor ? timeAnchor.getAttribute('href') : '';
-          const tweetUrl = tweetPath ? `https://mobile.twitter.com${tweetPath}` : '';
-          const tweetId = tweetPath ? tweetPath.split('/status/')[1].split('?')[0] : '';
-          const timeElem = n.querySelector('time');
-          const timestamp = timeElem ? timeElem.getAttribute('datetime') : '';
-          // collect image media URLs
-          const images = Array.from(n.querySelectorAll('img'))
-            .filter(img => img.src.includes('twimg.com/media'))
-            .map(img => img.src);
-          return { username, displayName, userId, content, timestamp, tweetUrl, tweetId, images };
+          if (timeAnchor) {
+            const tweetPath = timeAnchor.getAttribute('href');
+            tweetUrl = tweetPath ? `https://twitter.com${tweetPath}` : '';
+            tweetId = tweetPath ? tweetPath.split('/status/')[1]?.split('?')[0] : '';
+            
+            const timeElem = timeAnchor.querySelector('time') || n.querySelector('time');
+            timestamp = timeElem ? timeElem.getAttribute('datetime') : '';
+          }
+          
+          // Alternative way to get tweet ID if the above failed
+          if (!tweetId) {
+            const statusAttribute = n.getAttribute('data-tweet-id') || 
+                                   n.getAttribute('data-item-id') || 
+                                   n.querySelector('[data-tweet-id]')?.getAttribute('data-tweet-id');
+            if (statusAttribute) tweetId = statusAttribute;
+          }
+          
+          // collect image media URLs with fallbacks
+          const images = Array.from(
+            n.querySelectorAll('img[src*="twimg.com/media"], img[src*="pbs.twimg.com/media"]')
+          ).filter(img => !img.src.includes('profile_images'))
+           .map(img => img.src);
+          
+          return { username, displayName, content, timestamp, tweetUrl, tweetId, images };
         }));
       } catch (err) {
-        console.warn('Detached frame detected, retrying scroll...', err.message);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.warn('Extraction error occurred:', err.message);
+        console.log('Taking a failure screenshot for debugging');
+        await page.screenshot({ path: `extraction-error-${Date.now()}.png`, fullPage: true });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // longer wait time
         continue;
       }
       // add only tweets with a valid tweetId, keying by tweetId
       newTweets.forEach(t => {
         if (t.tweetId && !tweetMap.has(t.tweetId)) {
+          // Add sentiment analysis to each tweet
+          if (t.content) {
+            const sentimentResult = sentiment.analyze(t.content);
+            t.sentiment = {
+              score: sentimentResult.score,
+              comparative: sentimentResult.comparative,
+              positive: sentimentResult.positive,
+              negative: sentimentResult.negative
+            };
+          } else {
+            // Default sentiment for tweets without text content
+            t.sentiment = { score: 0, comparative: 0, positive: [], negative: [] };
+          }
           tweetMap.set(t.tweetId, t);
         }
       });
@@ -302,6 +446,46 @@ process.on('exit', () => {
     await browser.close();
   } catch (error) {
     console.error('Error in scraper:', error);
+    
+    // Try to take a screenshot of the page to help diagnose the issue
+    try {
+      // Make sure page is defined before trying to use it
+      if (typeof page !== 'undefined' && page) {
+        await page.screenshot({ path: 'error-state.png', fullPage: true });
+        console.log('Saved error state screenshot to error-state.png');
+        
+        // Log the current page HTML for debugging
+        const html = await page.content();
+        fs.writeFileSync('error-page.html', html);
+        console.log('Saved error page HTML to error-page.html');
+        
+        // Check what selectors are currently available on the page
+        const selectorCheck = await page.evaluate(() => {
+          const selectors = [
+            'article', 
+            'div[lang]',
+            'article div[lang]',
+            'div[data-testid="tweetText"]',
+            'section[aria-label]',
+            'div[aria-label="Timeline"]'
+          ];
+          
+          return selectors.map(selector => {
+            return {
+              selector,
+              count: document.querySelectorAll(selector).length
+            };
+          });
+        });
+        
+        console.log('Available selectors on the page:', selectorCheck);
+      } else {
+        console.error('Page object not available for diagnostic capture');
+      }
+    } catch (screenshotError) {
+      console.error('Failed to capture diagnostic information:', screenshotError);
+    }
+    
     flushPartial('Error flush');
     process.exit(1);
   } finally {

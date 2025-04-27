@@ -97,4 +97,8 @@ run ``npm i | node server.js`` and go to ``http://localhost:3000``
 
 ### v6 to go
 
-sentiment analysis, bot analysis todo, user profiling/classifaction?
+* sentiment analysis, does not work too well. another package can be tried to use.
+* the max tweet count seems approximately 900, x makes you stop scrolling down (getting posts) at some point.
+
+### v7 to go
+bot analysis, user profiling/classifaction?

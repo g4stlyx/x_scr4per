@@ -438,6 +438,33 @@ function updateTweetContainer(tweetsToDisplay) {
         tweetContent.className = 'tweet-content';
         tweetContent.textContent = tweet.content;
         
+        // Create sentiment indicator if sentiment data exists
+        if (tweet.sentiment) {
+            const sentimentDiv = document.createElement('div');
+            sentimentDiv.className = 'tweet-sentiment';
+            
+            // Determine sentiment class based on score
+            let sentimentClass = 'neutral';
+            let sentimentLabel = 'Neutral';
+            
+            if (tweet.sentiment.score > 0) {
+                sentimentClass = 'positive';
+                sentimentLabel = 'Positive';
+            } else if (tweet.sentiment.score < 0) {
+                sentimentClass = 'negative';
+                sentimentLabel = 'Negative';
+            }
+            
+            sentimentDiv.innerHTML = `
+                <span class="sentiment-badge ${sentimentClass}">${sentimentLabel}</span>
+                <span class="sentiment-score" title="Sentiment score: ${tweet.sentiment.score}">
+                    Score: ${tweet.sentiment.score}
+                </span>
+            `;
+            
+            tweetContent.appendChild(sentimentDiv);
+        }
+        
         // Create tweet images if available
         let tweetImages = '';
         if (tweet.images && tweet.images.length > 0) {
