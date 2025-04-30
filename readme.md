@@ -101,4 +101,4 @@ run ``npm i | node server.js`` and go to ``http://localhost:3000``
 * the max tweet count seems approximately 900, x makes you stop scrolling down (getting posts) at some point.
 
 ### v7 to go
-bot analysis, user profiling/classifaction?
+user profiling/classifaction?

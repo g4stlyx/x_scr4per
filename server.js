@@ -190,7 +190,7 @@ app.get('/api/tweets/:jobId', (req, res) => {
   }
 });
 
-// Endpoint to download the tweets JSON file
+//Endpoint to download the tweets JSON file
 app.get('/api/download/:jobId', (req, res) => {
   const jobId = req.params.jobId;
   if (!activeScrapers[jobId]) {

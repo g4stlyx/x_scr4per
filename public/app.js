@@ -455,11 +455,41 @@ function updateTweetContainer(tweetsToDisplay) {
                 sentimentLabel = 'Negative';
             }
             
+            // Create emoji list if available
+            let emojiDisplay = '';
+            if (tweet.sentiment.emojis && tweet.sentiment.emojis.length > 0) {
+                const emojiList = tweet.sentiment.emojis.map(e => e.emoji).join(' ');
+                emojiDisplay = `<span class="sentiment-emojis" title="Emojis detected">${emojiList}</span>`;
+            }
+            
+            // Create highlighted positive and negative word list
+            let wordHighlights = '';
+            if (tweet.sentiment.positive.length > 0 || tweet.sentiment.negative.length > 0) {
+                const positiveWords = tweet.sentiment.positive.map(w => 
+                    `<span class="word positive">${w}</span>`).join(' ');
+                const negativeWords = tweet.sentiment.negative.map(w => 
+                    `<span class="word negative">${w}</span>`).join(' ');
+                    
+                if (positiveWords || negativeWords) {
+                    wordHighlights = `
+                        <div class="sentiment-words small mt-1">
+                            ${positiveWords ? `<div>Positive: ${positiveWords}</div>` : ''}
+                            ${negativeWords ? `<div>Negative: ${negativeWords}</div>` : ''}
+                        </div>
+                    `;
+                }
+            }
+            
+            // Main sentiment display
             sentimentDiv.innerHTML = `
-                <span class="sentiment-badge ${sentimentClass}">${sentimentLabel}</span>
-                <span class="sentiment-score" title="Sentiment score: ${tweet.sentiment.score}">
-                    Score: ${tweet.sentiment.score}
-                </span>
+                <div class="d-flex align-items-center">
+                    <span class="sentiment-badge ${sentimentClass}">${sentimentLabel}</span>
+                    <span class="sentiment-score" title="Sentiment score: ${tweet.sentiment.score.toFixed(2)}">
+                        Score: ${tweet.sentiment.score.toFixed(2)}
+                    </span>
+                    ${emojiDisplay}
+                </div>
+                ${wordHighlights}
             `;
             
             tweetContent.appendChild(sentimentDiv);

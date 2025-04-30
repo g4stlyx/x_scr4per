@@ -2,9 +2,87 @@
 console.log('Starting scraper...');
 // load environment variables for credentials
 require('dotenv').config();
-// Load sentiment analysis library
-const Sentiment = require('sentiment');
-const sentiment = new Sentiment();
+
+// Enhanced sentiment analysis setup
+const natural = require('natural');
+const emojiSentiment = require('emoji-sentiment');
+const tokenizer = new natural.WordTokenizer();
+const sentiment = new natural.SentimentAnalyzer('English', natural.PorterStemmer, 'afinn');
+
+// Custom sentiment analyzer that handles emojis, slang and social media content
+function analyzeSentiment(text, language = 'en') {
+  if (!text) return { score: 0, comparative: 0, positive: [], negative: [], emojis: [] };
+  
+  // Process emojis
+  const emojiResults = [];
+  const extractedEmojis = [];
+  const textWithoutEmojis = text.replace(/[\p{Emoji}]/gu, match => {
+    extractedEmojis.push(match);
+    const emojiData = emojiSentiment.find(e => e.emoji === match);
+    if (emojiData) {
+      emojiResults.push({ emoji: match, score: emojiData.sentiment });
+      return ' '; // Replace emoji with space to maintain word boundaries
+    }
+    return match;
+  });
+  
+  // Get emoji sentiment score
+  const emojiScore = emojiResults.reduce((sum, emoji) => sum + emoji.score, 0);
+  
+  // Process text (language specific handling)
+  let textScore, tokens, positive = [], negative = [];
+  
+  if (language === 'tr') {
+    // Custom Turkish processing (limited, but better than nothing)
+    const turkishPositive = ['güzel', 'harika', 'süper', 'iyi', 'seviyorum', 'hoş', 'mutlu', 'başarılı', 'teşekkür'];
+    const turkishNegative = ['kötü', 'berbat', 'rezil', 'korkunç', 'nefret', 'üzgün', 'kızgın', 'sorun', 'problem'];
+    
+    tokens = tokenizer.tokenize(textWithoutEmojis.toLowerCase());
+    let posCount = 0, negCount = 0;
+    
+    tokens.forEach(token => {
+      if (turkishPositive.some(word => token.includes(word))) {
+        positive.push(token);
+        posCount++;
+      } else if (turkishNegative.some(word => token.includes(word))) {
+        negative.push(token);
+        negCount--;
+      }
+    });
+    
+    textScore = posCount + negCount;
+  } else {
+    // English and other languages using AFINN
+    tokens = tokenizer.tokenize(textWithoutEmojis);
+    textScore = sentiment.getSentiment(tokens);
+    
+    // Extract positive and negative words
+    tokens.forEach(token => {
+      const wordSentiment = sentiment.getSentiment([token]);
+      if (wordSentiment > 0) positive.push(token);
+      else if (wordSentiment < 0) negative.push(token);
+    });
+  }
+  
+  // Social media specific adjustments
+  const hasExclamation = text.includes('!');
+  const hasAllCaps = /[A-Z]{3,}/.test(text);
+  const intensifier = (hasExclamation ? 1.2 : 1) * (hasAllCaps ? 1.2 : 1);
+  
+  // Combined score with adjustments
+  const combinedScore = (textScore + emojiScore * 0.5) * intensifier;
+  const normalizedScore = Math.max(-5, Math.min(5, combinedScore)); // Limit to -5 to 5 range
+  
+  return {
+    score: normalizedScore,
+    comparative: tokens.length > 0 ? normalizedScore / tokens.length : 0,
+    positive: positive,
+    negative: negative,
+    emojis: emojiResults,
+    intensity: intensifier > 1 ? 'high' : 'normal'
+  };
+}
+
 // parse CLI options for search parameters
 const argv = require('yargs/yargs')(process.argv.slice(2))
   .option('user', { type: 'string', describe: 'Filter tweets from a specific user (without @)' })
@@ -394,12 +472,13 @@ process.on('exit', () => {
         if (t.tweetId && !tweetMap.has(t.tweetId)) {
           // Add sentiment analysis to each tweet
           if (t.content) {
-            const sentimentResult = sentiment.analyze(t.content);
+            const sentimentResult = analyzeSentiment(t.content);
             t.sentiment = {
               score: sentimentResult.score,
               comparative: sentimentResult.comparative,
               positive: sentimentResult.positive,
-              negative: sentimentResult.negative
+              negative: sentimentResult.negative,
+              emojis: sentimentResult.emojis
             };
           } else {
             // Default sentiment for tweets without text content
