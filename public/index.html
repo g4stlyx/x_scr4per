@@ -17,214 +17,618 @@
                 <i class="fab fa-twitter me-2"></i>
                 X Scraper
             </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Tweet Scraper</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#userProfilerTab" data-bs-toggle="tab">User Profiler</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
-    <div class="container-fluid">
-        <div class="row mt-3">
-            <!-- Left sidebar - Configuration panel -->
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Scraper Configuration</h5>
+    <div class="container-fluid tab-content">
+        <!-- Tweet Scraper Tab -->
+        <div class="tab-pane fade show active" id="tweetScraperTab">
+            <div class="row mt-3">
+                <!-- Left sidebar - Configuration panel -->
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Scraper Configuration</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="scraperForm">
+                                <!-- Search Parameters -->
+                                <div class="mb-3">
+                                    <label for="query" class="form-label">Search Query</label>
+                                    <input type="text" class="form-control" id="query" placeholder="Keywords or phrase">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="user" class="form-label">User (without @)</label>
+                                    <input type="text" class="form-control" id="user" placeholder="username">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="since" class="form-label">Since Date</label>
+                                    <input type="date" class="form-control" id="since">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="until" class="form-label">Until Date</label>
+                                    <input type="date" class="form-control" id="until">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="tab" class="form-label">Tab</label>
+                                    <select class="form-select" id="tab">
+                                        <option value="latest" selected>Latest</option>
+                                        <option value="top">Top</option>
+                                        <option value="media">Media</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="lang" class="form-label">Language Code</label>
+                                    <input type="text" class="form-control" id="lang" placeholder="e.g., en, tr">
+                                </div>
+                                
+                                <!-- Advanced Parameters -->
+                                <div class="accordion mb-3" id="advancedOptions">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                                    data-bs-target="#advancedSettings">
+                                                Advanced Settings
+                                            </button>
+                                        </h2>
+                                        <div id="advancedSettings" class="accordion-collapse collapse" data-bs-parent="#advancedOptions">
+                                            <div class="accordion-body">
+                                                <div class="mb-3">
+                                                    <label for="limit" class="form-label">Tweet Limit</label>
+                                                    <input type="number" class="form-control" id="limit" placeholder="Max tweets to scrape">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="maxNoNew" class="form-label">End of Feed Detection</label>
+                                                    <input type="number" class="form-control" id="maxNoNew" min="1" value="3" 
+                                                        placeholder="Empty scrolls to detect end">
+                                                    <div class="form-text">Number of empty scrolls to detect end of feed</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="scrollDelay" class="form-label">Scroll Delay (ms)</label>
+                                                    <input type="number" class="form-control" id="scrollDelay" min="200" value="500" 
+                                                        placeholder="Delay between scrolls">
+                                                    <div class="form-text">Lower = faster but may miss tweets (min: 200ms)</div>
+                                                </div>
+                                                <div class="mb-3 form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="headlessMode" checked>
+                                                    <label class="form-check-label" for="headlessMode">Run in headless mode (hidden browser)</label>
+                                                    <div class="form-text">When enabled, browser runs invisibly in the background. Uncheck to see the browser while scraping.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-success" id="startButton">
+                                        <i class="fas fa-play me-2"></i>
+                                        Start Scraping
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <form id="scraperForm">
-                            <!-- Search Parameters -->
-                            <div class="mb-3">
-                                <label for="query" class="form-label">Search Query</label>
-                                <input type="text" class="form-control" id="query" placeholder="Keywords or phrase">
+                </div>
+                
+                <!-- Center content - Active jobs and results -->
+                <div class="col-md-9">
+                    <!-- Current Job Status -->
+                    <div class="card mb-3" id="currentJobCard" style="display: none;">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Current Job</h5>
+                            <div>
+                                <button class="btn btn-sm btn-danger" id="stopButton">
+                                    <i class="fas fa-stop me-2"></i>
+                                    Stop
+                                </button>
                             </div>
-                            <div class="mb-3">
-                                <label for="user" class="form-label">User (without @)</label>
-                                <input type="text" class="form-control" id="user" placeholder="username">
-                            </div>
-                            <div class="mb-3">
-                                <label for="since" class="form-label">Since Date</label>
-                                <input type="date" class="form-control" id="since">
-                            </div>
-                            <div class="mb-3">
-                                <label for="until" class="form-label">Until Date</label>
-                                <input type="date" class="form-control" id="until">
-                            </div>
-                            <div class="mb-3">
-                                <label for="tab" class="form-label">Tab</label>
-                                <select class="form-select" id="tab">
-                                    <option value="latest" selected>Latest</option>
-                                    <option value="top">Top</option>
-                                    <option value="media">Media</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="lang" class="form-label">Language Code</label>
-                                <input type="text" class="form-control" id="lang" placeholder="e.g., en, tr">
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 id="jobTitle">Job Title</h5>
+                                    <div id="jobDetails" class="mb-2"></div>
+                                    <div>
+                                        <span class="badge bg-primary" id="jobStatus">Status</span>
+                                        <span class="ms-2" id="jobTime">Start Time: --</span>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <h4><span id="tweetCounter">0</span> tweets</h4>
+                                </div>
                             </div>
                             
-                            <!-- Advanced Parameters -->
-                            <div class="accordion mb-3" id="advancedOptions">
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header">
-                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
-                                                data-bs-target="#advancedSettings">
-                                            Advanced Settings
-                                        </button>
-                                    </h2>
-                                    <div id="advancedSettings" class="accordion-collapse collapse" data-bs-parent="#advancedOptions">
-                                        <div class="accordion-body">
-                                            <div class="mb-3">
-                                                <label for="limit" class="form-label">Tweet Limit</label>
-                                                <input type="number" class="form-control" id="limit" placeholder="Max tweets to scrape">
+                            <!-- Progress information -->
+                            <div class="progress mt-3" style="height: 25px;">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                    role="progressbar" style="width: 0%;">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabs for Results, Console, and Jobs -->
+                    <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="results-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#results" type="button" role="tab">
+                                Tweets
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="console-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#console" type="button" role="tab">
+                                Console
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="jobs-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#jobs" type="button" role="tab">
+                                Jobs History
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content border border-top-0 rounded-bottom p-3">
+                        <!-- Tweets Tab -->
+                        <div class="tab-pane fade show active" id="results" role="tabpanel">
+                            <div class="d-flex justify-content-between mb-3">
+                                <div class="input-group w-50">
+                                    <input type="text" class="form-control" placeholder="Filter tweets..." id="tweetFilter">
+                                    <button class="btn btn-outline-secondary" type="button" id="clearFilter">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary" id="downloadBtn">
+                                        <i class="fas fa-download me-2"></i>
+                                        Download JSON
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="tweetsContainer" class="tweet-container">
+                                <!-- Tweets will be loaded here -->
+                                <div class="alert alert-info">
+                                    No tweets available yet. Start scraping or select a job to view tweets.
+                                </div>
+                            </div>
+                            
+                            <!-- Add pagination div here -->
+                            <div id="pagination" class="d-flex justify-content-between align-items-center mt-3">
+                                <!-- Pagination will be dynamically generated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Console Tab -->
+                        <div class="tab-pane fade" id="console" role="tabpanel">
+                            <div class="console-output" id="consoleOutput">
+                                <!-- Console messages will appear here -->
+                                <div class="console-line">Ready to start scraping...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Jobs History Tab -->
+                        <div class="tab-pane fade" id="jobs" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Job ID</th>
+                                            <th>Parameters</th>
+                                            <th>Start Time</th>
+                                            <th>End Time</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="jobsTable">
+                                        <!-- Jobs will be listed here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- User Profiler Tab -->
+        <div class="tab-pane fade" id="userProfilerTab">
+            <div class="row mt-3">
+                <!-- Left sidebar - Profile Configuration -->
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-header bg-purple text-white">
+                            <h5 class="mb-0">User Profiler</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="profilerForm">
+                                <div class="mb-3">
+                                    <label for="profileUsername" class="form-label">Username (without @)</label>
+                                    <input type="text" class="form-control" id="profileUsername" placeholder="e.g., elonmusk" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="profileTab" class="form-label">Content to Analyze</label>
+                                    <select class="form-select" id="profileTab">
+                                        <option value="posts" selected>Posts</option>
+                                        <option value="with_replies">Posts & Replies</option>
+                                        <option value="media">Media</option>
+                                        <option value="all">All Tabs</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="tweetLimit" class="form-label">Tweet Limit</label>
+                                    <input type="number" class="form-control" id="tweetLimit" value="100" min="10" max="1000">
+                                    <small class="form-text text-muted">Maximum tweets to analyze per tab</small>
+                                </div>
+                                
+                                <div class="accordion mb-3" id="profilerAdvancedOptions">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                                    data-bs-target="#profilerAdvancedSettings">
+                                                Advanced Settings
+                                            </button>
+                                        </h2>
+                                        <div id="profilerAdvancedSettings" class="accordion-collapse collapse" data-bs-parent="#profilerAdvancedOptions">
+                                            <div class="accordion-body">
+                                                <div class="mb-3">
+                                                    <label for="minWordCount" class="form-label">Minimum Word Count</label>
+                                                    <input type="number" class="form-control" id="minWordCount" value="2" min="1">
+                                                    <small class="form-text text-muted">Minimum appearances to include in analysis</small>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="profilerLanguage" class="form-label">Language for Analysis</label>
+                                                    <select class="form-select" id="profilerLanguage">
+                                                        <option value="en" selected>English</option>
+                                                        <option value="tr">Turkish</option>
+                                                        <option value="es">Spanish</option>
+                                                        <option value="fr">French</option>
+                                                        <option value="de">German</option>
+                                                    </select>
+                                                    <small class="form-text text-muted">For filtering stop words</small>
+                                                </div>
+                                                
+                                                <div class="mb-3 form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="excludeStopWords" checked>
+                                                    <label class="form-check-label" for="excludeStopWords">Filter out common stop words</label>
+                                                </div>
+                                                
+                                                <div class="mb-3 form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" role="switch" id="profileHeadlessMode" checked>
+                                                    <label class="form-check-label" for="profileHeadlessMode">Run in headless mode</label>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="profileScrollDelay" class="form-label">Scroll Delay (ms)</label>
+                                                    <input type="number" class="form-control" id="profileScrollDelay" value="800" min="300" max="2000">
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="profileOutputFile" class="form-label">Output File Name</label>
+                                                    <input type="text" class="form-control" id="profileOutputFile" placeholder="Leave blank for auto-generated">
+                                                    <small class="form-text text-muted">Without file extension</small>
+                                                </div>
                                             </div>
-                                            <div class="mb-3">
-                                                <label for="maxNoNew" class="form-label">End of Feed Detection</label>
-                                                <input type="number" class="form-control" id="maxNoNew" min="1" value="3" 
-                                                       placeholder="Empty scrolls to detect end">
-                                                <div class="form-text">Number of empty scrolls to detect end of feed</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-purple" id="startProfilerButton">
+                                        <i class="fas fa-user-check me-2"></i>
+                                        Start User Profiling
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Content - Profile Results -->
+                <div class="col-md-9">
+                    <!-- Current Profiling Job Status -->
+                    <div class="card mb-3" id="profileJobCard" style="display: none;">
+                        <div class="card-header bg-purple text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Current Profiling Job</h5>
+                            <div>
+                                <button class="btn btn-sm btn-danger" id="stopProfilerButton">
+                                    <i class="fas fa-stop me-2"></i>
+                                    Stop
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 id="profileTitle">Analyzing @username</h5>
+                                    <div id="profileDetails" class="text-muted"></div>
+                                </div>
+                                <div>
+                                    <span class="badge bg-purple" id="profileStatus">Status</span>
+                                </div>
+                            </div>
+                            
+                            <div class="progress mt-3" style="height: 25px;">
+                                <div id="profileProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-purple" 
+                                    role="progressbar" style="width: 0%;">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Profile Results Tabs -->
+                    <ul class="nav nav-tabs" id="profileResultTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="profileSummary-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#profileSummary" type="button" role="tab">
+                                Profile Summary
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="wordAnalysis-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#wordAnalysis" type="button" role="tab">
+                                Word Analysis
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tweetSamples-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#tweetSamples" type="button" role="tab">
+                                Tweet Samples
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="profilerConsole-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#profilerConsole" type="button" role="tab">
+                                Console
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content border border-top-0 rounded-bottom p-3">
+                        <!-- Profile Summary Tab -->
+                        <div class="tab-pane fade show active" id="profileSummary" role="tabpanel">
+                            <div class="profile-info">
+                                <div class="alert alert-info" id="profileInfoPlaceholder">
+                                    No profile information available. Run a profile analysis first.
+                                </div>
+                                                                
+                                <!-- Profile data will be displayed here -->
+                                <div id="profileInfoContainer" style="display: none;">
+                                    <div class="profile-container">
+                                        <!-- Header Photo -->
+                                        <div class="profile-header-photo">
+                                            <div class="header-photo-container">
+                                                <img src="" alt="Header Photo" id="profileHeaderImage" class="header-photo">
                                             </div>
-                                            <div class="mb-3">
-                                                <label for="scrollDelay" class="form-label">Scroll Delay (ms)</label>
-                                                <input type="number" class="form-control" id="scrollDelay" min="200" value="500" 
-                                                       placeholder="Delay between scrolls">
-                                                <div class="form-text">Lower = faster but may miss tweets (min: 200ms)</div>
+                                        </div>
+                                        
+                                        <!-- Profile Info Section -->
+                                        <div class="profile-info-section">
+                                            <!-- Avatar and Buttons Row -->
+                                            <div class="profile-avatar-buttons-row">
+                                                <div class="profile-image-container">
+                                                    <img src="" alt="Profile Image" id="profileImage" class="profile-image">
+                                                </div>
+                                                
+                                                <div class="profile-action-buttons">
+                                                    <button class="btn profile-action-btn">
+                                                        <i class="fas fa-ellipsis-h"></i>
+                                                    </button>
+                                                    <button class="btn profile-action-btn">
+                                                        <i class="fab fa-twitter-square"></i>
+                                                    </button>
+                                                    <button class="btn profile-action-btn">
+                                                        <i class="fas fa-search"></i>
+                                                    </button>
+                                                    <button class="btn profile-action-btn">
+                                                        <i class="fas fa-envelope"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-light btn-sm following-btn">Following</button>
+                                                </div>
                                             </div>
-                                            <div class="mb-3 form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" role="switch" id="headlessMode" checked>
-                                                <label class="form-check-label" for="headlessMode">Run in headless mode (hidden browser)</label>
-                                                <div class="form-text">When enabled, browser runs invisibly in the background. Uncheck to see the browser while scraping.</div>
+                                            
+                                            <!-- Name and username -->
+                                            <div class="profile-name-section">
+                                                <h4 class="profile-display-name" id="profileName">Name</h4>
+                                                <p class="profile-username" id="profileDisplayUsername">@username</p>
+                                            </div>
+                                            
+                                            <!-- Bio -->
+                                            <div class="profile-bio mb-2" id="profileBio"></div>
+                                            
+                                            <!-- Profile metadata -->
+                                            <div class="profile-metadata">
+                                                <span class="profile-meta-item" id="profileLocation">
+                                                    <i class="fas fa-map-marker-alt"></i>
+                                                    <span>Location</span>
+                                                </span>
+                                                <span class="profile-meta-item" id="profileWebsite">
+                                                    <i class="fas fa-link"></i>
+                                                    <span>Website</span>
+                                                </span>
+                                                <span class="profile-meta-item" id="profileJoined">
+                                                    <i class="fas fa-calendar-alt"></i>
+                                                    <span>Joined</span>
+                                                </span>
+                                            </div>
+                                            
+                                            <!-- Following/Followers -->
+                                            <div class="profile-stats">
+                                                <a href="#" class="profile-stat-link">
+                                                    <span class="profile-stat-value" id="profileFollowing">0</span>
+                                                    <span class="profile-stat-label">Following</span>
+                                                </a>
+                                                <a href="#" class="profile-stat-link">
+                                                    <span class="profile-stat-value" id="profileFollowers">0</span>
+                                                    <span class="profile-stat-label">Followers</span>
+                                                </a>
+                                            </div>
+                                            
+                                            <!-- Mutual followers section -->
+                                            <div class="mutual-followers-section">
+                                                <div class="mutual-avatars">
+                                                    <!-- Avatars will be populated dynamically -->
+                                                </div>
+                                                <div class="mutual-followers-text" id="mutualFollowersText">
+                                                    No mutual followers
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-success" id="startButton">
-                                    <i class="fas fa-play me-2"></i>
-                                    Start Scraping
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Center content - Active jobs and results -->
-            <div class="col-md-9">
-                <!-- Current Job Status -->
-                <div class="card mb-3" id="currentJobCard" style="display: none;">
-                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Current Job</h5>
-                        <div>
-                            <button class="btn btn-sm btn-danger" id="stopButton">
-                                <i class="fas fa-stop me-2"></i>
-                                Stop
-                            </button>
                         </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h5 id="jobTitle">Job Title</h5>
-                                <div id="jobDetails" class="mb-2"></div>
+                        
+                        <!-- Word Analysis Tab -->
+                        <div class="tab-pane fade" id="wordAnalysis" role="tabpanel">
+                            <div class="mb-3 d-flex justify-content-between align-items-center">
                                 <div>
-                                    <span class="badge bg-primary" id="jobStatus">Status</span>
-                                    <span class="ms-2" id="jobTime">Start Time: --</span>
+                                    <select class="form-select form-select-sm" id="wordAnalysisTabSelector" style="width: auto;">
+                                        <option value="overall">Overall</option>
+                                        <option value="posts">Posts</option>
+                                        <option value="with_replies">Posts & Replies</option>
+                                        <option value="media">Media</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary" id="downloadWordAnalysisBtn">
+                                        <i class="fas fa-download me-2"></i>
+                                        Download Word Analysis
+                                    </button>
                                 </div>
                             </div>
-                            <div class="text-end">
-                                <h4><span id="tweetCounter">0</span> tweets</h4>
+                            
+                            <div class="alert alert-info" id="wordAnalysisPlaceholder">
+                                No word analysis available. Run a profile analysis first.
+                            </div>
+                            
+                            <div id="wordAnalysisContainer" style="display: none;">
+                                <div class="word-analysis-stats mb-3">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <h5 class="text-muted">Analyzed Tweets</h5>
+                                                    <h3 id="analyzedTweetsCount">0</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <h5 class="text-muted">Total Words</h5>
+                                                    <h3 id="totalWordsCount">0</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card">
+                                                <div class="card-body text-center">
+                                                    <h5 class="text-muted">Unique Words</h5>
+                                                    <h3 id="uniqueWordsCount">0</h3>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <h4>Word Frequency</h4>
+                                    <div id="wordFrequencyChart" style="height: 300px;"></div>
+                                </div>
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-striped" id="wordFrequencyTable">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Word</th>
+                                                <th>Count</th>
+                                                <th>Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Word frequency data will be displayed here -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Progress information -->
-                        <div class="progress mt-3" style="height: 25px;">
-                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 role="progressbar" style="width: 0%;">
-                                0%
+                        <!-- Tweet Samples Tab -->
+                        <div class="tab-pane fade" id="tweetSamples" role="tabpanel">
+                            <div class="mb-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <select class="form-select form-select-sm" id="tweetSampleTabSelector" style="width: auto;">
+                                        <option value="posts">Posts</option>
+                                        <option value="with_replies">Posts & Replies</option>
+                                        <option value="media">Media</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Tabs for Results, Console, and Jobs -->
-                <ul class="nav nav-tabs" id="resultTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="results-tab" data-bs-toggle="tab" 
-                                data-bs-target="#results" type="button" role="tab">
-                            Tweets
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="console-tab" data-bs-toggle="tab" 
-                                data-bs-target="#console" type="button" role="tab">
-                            Console
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="jobs-tab" data-bs-toggle="tab" 
-                                data-bs-target="#jobs" type="button" role="tab">
-                            Jobs History
-                        </button>
-                    </li>
-                </ul>
-                
-                <div class="tab-content border border-top-0 rounded-bottom p-3">
-                    <!-- Tweets Tab -->
-                    <div class="tab-pane fade show active" id="results" role="tabpanel">
-                        <div class="d-flex justify-content-between mb-3">
-                            <div class="input-group w-50">
-                                <input type="text" class="form-control" placeholder="Filter tweets..." id="tweetFilter">
-                                <button class="btn btn-outline-secondary" type="button" id="clearFilter">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                            
+                            <div class="alert alert-info" id="tweetSamplesPlaceholder">
+                                No tweet samples available. Run a profile analysis first.
                             </div>
-                            <div>
-                                <button class="btn btn-primary" id="downloadBtn">
-                                    <i class="fas fa-download me-2"></i>
-                                    Download JSON
-                                </button>
+                            
+                            <div id="tweetSamplesContainer" class="tweet-samples">
+                                <!-- Tweet samples will be displayed here -->
                             </div>
                         </div>
                         
-                        <div id="tweetsContainer" class="tweet-container">
-                            <!-- Tweets will be loaded here -->
-                            <div class="alert alert-info">
-                                No tweets available yet. Start scraping or select a job to view tweets.
+                        <!-- Profiler Console Tab -->
+                        <div class="tab-pane fade" id="profilerConsole" role="tabpanel">
+                            <div class="console-output" id="profilerConsoleOutput">
+                                <!-- Console messages will appear here -->
+                                <div class="console-line">Ready for user profiling...</div>
                             </div>
-                        </div>
-                        
-                        <!-- Add pagination div here -->
-                        <div id="pagination" class="d-flex justify-content-between align-items-center mt-3">
-                            <!-- Pagination will be dynamically generated here -->
                         </div>
                     </div>
                     
-                    <!-- Console Tab -->
-                    <div class="tab-pane fade" id="console" role="tabpanel">
-                        <div class="console-output" id="consoleOutput">
-                            <!-- Console messages will appear here -->
-                            <div class="console-line">Ready to start scraping...</div>
+                    <!-- Previous Profiles -->
+                    <div class="card mt-3">
+                        <div class="card-header bg-purple text-white">
+                            <h5 class="mb-0">Previous Profiles</h5>
                         </div>
-                    </div>
-                    
-                    <!-- Jobs History Tab -->
-                    <div class="tab-pane fade" id="jobs" role="tabpanel">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Job ID</th>
-                                        <th>Parameters</th>
-                                        <th>Start Time</th>
-                                        <th>End Time</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="jobsTable">
-                                    <!-- Jobs will be listed here -->
-                                </tbody>
-                            </table>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped mb-0" id="previousProfilesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Analyzed</th>
+                                            <th>Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Previous profiles will be listed here -->
+                                        <tr>
+                                            <td colspan="4" class="text-center">No previous profiles found</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -234,6 +638,8 @@
 
     <!-- Bootstrap & JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js"></script>
+    <script src="profiler.js"></script>
 </body>
 </html>

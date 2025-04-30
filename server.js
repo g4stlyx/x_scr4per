@@ -28,6 +28,9 @@ app.get('/', (req, res) => {
 // Store active scraper processes
 const activeScrapers = {};
 
+// Store active user profiler processes
+const activeProfilers = {};
+
 // Endpoint to start a scraping process
 app.post('/api/scrape', (req, res) => {
   const params = req.body;
@@ -104,6 +107,79 @@ app.post('/api/scrape', (req, res) => {
   }
 });
 
+// Endpoint to start a user profiling process
+app.post('/api/profile', (req, res) => {
+  const params = req.body;
+  const profileId = Date.now().toString();
+  
+  // Build args array from parameters
+  const args = ['x_user_profiler.js'];
+  
+  if (params.username) args.push(`--username=${params.username}`);
+  if (params.tab) args.push(`--tab=${params.tab}`);
+  if (params.limit) args.push(`--limit=${params.limit}`);
+  if (params.minWordCount) args.push(`--minWordCount=${params.minWordCount}`);
+  if (params.language) args.push(`--language=${params.language}`);
+  if (params.excludeStopWords !== undefined) args.push(`--excludeStopWords=${params.excludeStopWords}`);
+  if (params.scrollDelay) args.push(`--scrollDelay=${params.scrollDelay}`);
+  
+  // Use the provided outfile or generate one
+  const outfile = params.outfile || `out/profile_${params.username}_${profileId}.json`;
+  args.push(`--outfile=${outfile}`);
+  
+  // By default, run in headless mode (no visible browser)
+  // Only show browser if specifically requested
+  const runHeadless = params.headless !== false;
+  args.push(`--headless=${runHeadless}`);
+
+  console.log('Starting user profiler with args:', args);
+
+  try {
+    // Spawn the profiler as a child process
+    const profiler = spawn('node', args);
+    activeProfilers[profileId] = { 
+      process: profiler, 
+      output: [],
+      params: params,
+      outfile: outfile,
+      startTime: new Date().toISOString(),
+      status: 'running'
+    };
+
+    // Collect output from the profiler
+    profiler.stdout.on('data', (data) => {
+      const output = data.toString();
+      console.log(`Profiler ${profileId} output:`, output);
+      activeProfilers[profileId].output.push({
+        time: new Date().toISOString(),
+        text: output
+      });
+    });
+
+    profiler.stderr.on('data', (data) => {
+      const error = data.toString();
+      console.error(`Profiler ${profileId} error:`, error);
+      activeProfilers[profileId].output.push({
+        time: new Date().toISOString(),
+        text: `ERROR: ${error}`,
+        isError: true
+      });
+    });
+
+    profiler.on('close', (code) => {
+      console.log(`Profiler ${profileId} exited with code ${code}`);
+      activeProfilers[profileId].status = code === 0 ? 'completed' : 'failed';
+      activeProfilers[profileId].endTime = new Date().toISOString();
+    });
+
+    // Respond with the profile ID
+    res.json({ profileId });
+  } catch (error) {
+    console.error('Failed to start user profiler process:', error);
+    res.status(500).json({ error: 'Failed to start user profiler process' });
+  }
+});
+
 // Endpoint to get status of a specific job
 app.get('/api/status/:jobId', (req, res) => {
   const jobId = req.params.jobId;
@@ -121,6 +197,23 @@ app.get('/api/status/:jobId', (req, res) => {
   }
 });
 
+// Endpoint to get status of a specific profile job
+app.get('/api/profile-status/:profileId', (req, res) => {
+  const profileId = req.params.profileId;
+  if (activeProfilers[profileId]) {
+    res.json({
+      profileId,
+      status: activeProfilers[profileId].status,
+      params: activeProfilers[profileId].params,
+      startTime: activeProfilers[profileId].startTime,
+      endTime: activeProfilers[profileId].endTime || null,
+      output: activeProfilers[profileId].output,
+    });
+  } else {
+    res.status(404).json({ error: 'Profile job not found' });
+  }
+});
+
 // Endpoint to stop a scraper job
 app.post('/api/stop/:jobId', (req, res) => {
   const jobId = req.params.jobId;
@@ -134,6 +227,19 @@ app.post('/api/stop/:jobId', (req, res) => {
   }
 });
 
+// Endpoint to stop a profiler job
+app.post('/api/stop-profile/:profileId', (req, res) => {
+  const profileId = req.params.profileId;
+  if (activeProfilers[profileId] && activeProfilers[profileId].process) {
+    activeProfilers[profileId].process.kill();
+    activeProfilers[profileId].status = 'stopped';
+    activeProfilers[profileId].endTime = new Date().toISOString();
+    res.json({ status: 'stopped' });
+  } else {
+    res.status(404).json({ error: 'Profile job not found' });
+  }
+});
+
 // Endpoint to get a list of all jobs
 app.get('/api/jobs', (req, res) => {
   const jobs = Object.keys(activeScrapers).map(jobId => ({
@@ -144,6 +250,126 @@ app.get('/api/jobs', (req, res) => {
     params: activeScrapers[jobId].params
   }));
   res.json(jobs);
+});
+
+// Endpoint to get a list of all previous profiles
+app.get('/api/previous-profiles', (req, res) => {
+  try {
+    const profilesDir = path.join(__dirname, 'out');
+    
+    // Check if directory exists
+    if (!fs.existsSync(profilesDir)) {
+      return res.json({ profiles: [] });
+    }
+    
+    // Get all profile files
+    const files = fs.readdirSync(profilesDir);
+    const profileFiles = files.filter(file => file.startsWith('profile_') && file.endsWith('.json'));
+    
+    const profiles = [];
+    
+    // Process each profile file
+    for (const file of profileFiles) {
+      try {
+        const filePath = path.join(profilesDir, file);
+        const fileData = fs.readFileSync(filePath, 'utf8');
+        const fileStats = fs.statSync(filePath);
+        
+        // Try to parse the JSON
+        const data = JSON.parse(fileData);
+        
+        // Extract relevant data
+        profiles.push({
+          id: file.replace('profile_', '').replace('.json', ''),
+          username: data.username || 'unknown',
+          analyzedTabs: data.analyzedTabs || [],
+          date: fileStats.mtime,
+          filePath: filePath
+        });
+      } catch (err) {
+        console.error(`Error processing profile file ${file}:`, err);
+        // Skip this file and continue
+      }
+    }
+    
+    // Sort by date, newest first
+    profiles.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    res.json({ profiles });
+  } catch (err) {
+    console.error('Error listing profiles:', err);
+    res.status(500).json({ error: 'Failed to list profiles', details: err.message });
+  }
+});
+
+// Endpoint to get profile data
+app.get('/api/profile-data/:profileId', (req, res) => {
+  const profileId = req.params.profileId;
+  
+  // First check if it's an active profile
+  if (activeProfilers[profileId]) {
+    const filePath = path.join(__dirname, activeProfilers[profileId].outfile);
+    if (fs.existsSync(filePath)) {
+      return sendProfileData(filePath, res);
+    }
+  }
+  
+  // Otherwise look for it in the previous profiles
+  try {
+    const files = fs.readdirSync(path.join(__dirname, 'out'));
+    const profileFile = files.find(file => file.includes(profileId) && file.startsWith('profile_'));
+    
+    if (profileFile) {
+      const filePath = path.join(__dirname, 'out', profileFile);
+      return sendProfileData(filePath, res);
+    } else {
+      res.status(404).json({ error: 'Profile data not found' });
+    }
+  } catch (err) {
+    console.error('Error getting profile data:', err);
+    res.status(500).json({ error: 'Failed to get profile data', details: err.message });
+  }
+});
+
+// Helper function to send profile data
+function sendProfileData(filePath, res) {
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    const profile = JSON.parse(data);
+    res.json(profile);
+  } catch (err) {
+    console.error('Error reading profile data:', err);
+    res.status(500).json({ error: 'Failed to read profile data', details: err.message });
+  }
+}
+
+// Endpoint to download profile data
+app.get('/api/download-profile/:profileId', (req, res) => {
+  const profileId = req.params.profileId;
+  
+  // First check if it's an active profile
+  if (activeProfilers[profileId]) {
+    const filePath = path.join(__dirname, activeProfilers[profileId].outfile);
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath);
+    }
+  }
+  
+  // Otherwise look for it in the previous profiles
+  try {
+    const files = fs.readdirSync(path.join(__dirname, 'out'));
+    const profileFile = files.find(file => file.includes(profileId) && file.startsWith('profile_'));
+    
+    if (profileFile) {
+      const filePath = path.join(__dirname, 'out', profileFile);
+      return res.download(filePath);
+    } else {
+      res.status(404).json({ error: 'Profile data not found' });
+    }
+  } catch (err) {
+    console.error('Error downloading profile data:', err);
+    res.status(500).json({ error: 'Failed to download profile data', details: err.message });
+  }
 });
 
 // Endpoint to get the tweets collected by a job
