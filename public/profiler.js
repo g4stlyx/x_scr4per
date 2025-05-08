@@ -407,39 +407,53 @@ function formatCount(count) {
 // Update word analysis view based on selected tab
 function updateWordAnalysisView() {
     if (!currentProfileData || !currentProfileData.wordAnalysis) {
+        document.getElementById('wordAnalysisPlaceholder').style.display = 'block';
+        document.getElementById('wordAnalysisContainer').style.display = 'none';
         return;
     }
-    
-    // Get selected tab
+
     const selectedTab = document.getElementById('wordAnalysisTabSelector').value;
     const analysis = currentProfileData.wordAnalysis[selectedTab];
-    
-    // If the selected tab doesn't exist in the data, try to fall back to 'posts'
+
     if (!analysis) {
         if (currentProfileData.wordAnalysis.posts) {
             document.getElementById('wordAnalysisTabSelector').value = 'posts';
-            updateWordAnalysisView();
+            updateWordAnalysisView(); // Recursive call
         } else {
             // No valid data for any tab
             document.getElementById('wordAnalysisPlaceholder').style.display = 'block';
             document.getElementById('wordAnalysisContainer').style.display = 'none';
             addProfilerConsoleMessage(`No word analysis data for ${selectedTab} tab`, 'warning');
         }
+        return; // Exit current invocation
+    }
+
+    // Check if analysis.wordFrequency exists and is an object
+    if (!analysis.wordFrequency || typeof analysis.wordFrequency !== 'object' || Object.keys(analysis.wordFrequency).length === 0) {
+        document.getElementById('wordAnalysisPlaceholder').style.display = 'block';
+        document.getElementById('wordAnalysisContainer').style.display = 'none';
+        addProfilerConsoleMessage(`Word frequency data is missing, invalid, or empty for ${selectedTab} tab. Chart cannot be generated.`, 'error');
+        // Optionally, clear the chart if it exists from a previous state
+        const chartCanvas = document.getElementById('wordFrequencyChart');
+        if (chartCanvas && chartCanvas._chart) {
+            chartCanvas._chart.destroy();
+            chartCanvas._chart = null; // Clear reference
+        }
         return;
     }
-    
+
     // Hide placeholder and show container
     document.getElementById('wordAnalysisPlaceholder').style.display = 'none';
     document.getElementById('wordAnalysisContainer').style.display = 'block';
-    
+
     // Update statistics
-    document.getElementById('analyzedTweetsCount').textContent = analysis.analyzedTweets.toLocaleString();
-    document.getElementById('totalWordsCount').textContent = analysis.totalWords.toLocaleString();
-    document.getElementById('uniqueWordsCount').textContent = analysis.uniqueWords.toLocaleString();
-    
+    document.getElementById('analyzedTweetsCount').textContent = (analysis.analyzedTweets || 0).toLocaleString();
+    document.getElementById('totalWordsCount').textContent = (analysis.totalWords || 0).toLocaleString();
+    document.getElementById('uniqueWordsCount').textContent = (analysis.uniqueWords || 0).toLocaleString();
+
     // Update word frequency table
     updateWordFrequencyTable(analysis.wordFrequency);
-    
+
     // Create word cloud chart if Chart.js is available
     if (typeof Chart !== 'undefined') {
         createWordFrequencyChart(analysis.wordFrequency);
@@ -477,17 +491,38 @@ function updateWordFrequencyTable(wordFrequency) {
 // Create word frequency chart
 function createWordFrequencyChart(wordFrequency) {
     const chartCanvas = document.getElementById('wordFrequencyChart');
-    
+    if (!chartCanvas) {
+        console.error("wordFrequencyChart canvas element not found!");
+        addProfilerConsoleMessage("Error: Chart canvas element not found in the HTML.", "error");
+        return;
+    }
+
     // Destroy existing chart if it exists
     if (chartCanvas._chart) {
         chartCanvas._chart.destroy();
+        chartCanvas._chart = null; // Clear the reference
     }
-    
+
+    // Ensure wordFrequency is an object and not empty before proceeding
+    if (!wordFrequency || typeof wordFrequency !== 'object' || Object.keys(wordFrequency).length === 0) {
+        console.warn("Word frequency data is empty or invalid. Chart not created.");
+        // Optionally display a message on the canvas or a placeholder
+        // For now, just don't create the chart. The calling function (updateWordAnalysisView) should handle user message.
+        return;
+    }
+
     // Take top 20 words
     const words = Object.entries(wordFrequency)
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 20);
-    
+
+    if (words.length === 0) {
+        console.warn("No words to display in frequency chart after processing.");
+        addProfilerConsoleMessage("No word data available to display in the chart for the selected analysis type.", "info");
+        // Optionally display a message directly on the canvas area if needed
+        return;
+    }
+
     const labels = words.map(w => w[0]);
     const counts = words.map(w => w[1].count);
     

@@ -35,15 +35,6 @@ run ``npm i | node server.js`` and go to ``http://localhost:3000``
 
 <br><br>
 
-# TODO
-
-* ui
-* sentiment analysis? based on some words/emojis
-* bot detection? based on repetations
-* user profiling/classifaction?
-
-<br><br> 
-
 # VERSIONS
 
 ### v1
@@ -101,6 +92,7 @@ run ``npm i | node server.js`` and go to ``http://localhost:3000``
 * the max tweet count seems approximately 900, x makes you stop scrolling down (getting posts) at some point.
 
 ### v7
+
 user profiling/classifaction:
   * goes to the wanted user's profile, get their all profile information (name, username, bio, location, birth date etc.)
   * gets all of their tweets by the wanted tab (posts, replies, media), and count the words used.
